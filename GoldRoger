@@ -1,0 +1,176 @@
+//@version=5
+indicator(title='GoldRoger', shorttitle='☠️ GR', overlay=true)
+
+//{ EMA Section
+len1 = input.int(20, minval=1, title='Length1', group = 'EMA')
+len2 = input.int(50, minval=1, title='Length2', group = 'EMA')
+len3 = input.int(30, minval=1, title='Length3', group = 'EMA')
+len4 = input.int(50, minval=1, title='Length4', group = 'EMA')
+len5 = input.int(100, minval=1, title='Length5', group = 'EMA')
+len6 = input.int(200, minval=1, title='Length6', group = 'EMA')
+
+src1 = input(close, title='Source', group = 'EMA')
+
+ma1 = ta.ema(src1, len1)
+ma2 = ta.ema(src1, len2)
+ma3 = ta.ema(src1, len3)
+ma4 = ta.ema(src1, len4)
+ma5 = ta.ema(src1, len5)
+ma6 = ta.ema(src1, len6)
+
+plot(ma1, color=color.new(#1976d2, 0), title='MA1', linewidth=1)
+plot(ma2, color=color.new(#e91e63, 0), title='MA2', linewidth=1)
+plot(ma3, color=color.new(#fbc02d, 0), title='MA3', linewidth=1, display=display.none)
+plot(ma4, color=color.new(#4dd0e1, 0), title='MA4', linewidth=1, display=display.none)
+plot(ma5, color=color.new(#b71c1c, 0), title='MA5', linewidth=1, display=display.none)
+plot(ma6, color=color.new(#000000, 0), title='MA6', linewidth=1)
+
+//END }
+//******************************************************************************
+
+// { Session on Chart
+session = input.session('1000-0000:1234567', 'Trading Session', group = 'Session')
+show_session = input.bool(true, 'Show Session', group = 'Session')
+session_color = input.color(color.rgb(120, 123, 134, 90), 'Session Color', group = 'Session')
+in_session = time(timeframe.period, session, 'Asia/Bangkok') != 0
+bgcolor(in_session and show_session ? session_color : na, title = 'Session')
+
+// END of Session Section }
+//******************************************************************************
+
+//{ ATR
+showatr = input.bool(title='Show ATR', defval=true, group='ATR')
+atr_tf = input.timeframe("",  "ATR Timeframe (if custom)", group = 'ATR',
+         options = ["", "1", "5", "15", "60", "240", "D", "W"])
+atr_len = input.int(14, title='ATR Period', minval=1, group='ATR')
+atr_multiplier = input.float(title='ATR Multiplier', defval=1, minval=.01, maxval=100, group='ATR')
+use_custom_tf  = input.bool(false, "Use Custom Timeframe", group = 'ATR')
+
+// --- Resolve Timeframe ---
+resolved_tf = use_custom_tf ? atr_tf : timeframe.period
+
+atr_raw = request.security(syminfo.tickerid, resolved_tf, ta.atr(atr_len), lookahead = barmerge.lookahead_off)
+atr_value  = atr_raw * atr_multiplier
+
+
+// END }
+//******************************************************************************
+
+// { Daily High Low
+
+// Input 
+
+ShowHL = input.bool(true, "Show High/Low", group = "Show High/Low")
+
+// Get yesterday's high and low from daily timeframe
+yesterdayHigh = request.security(syminfo.tickerid, "D", high[1], barmerge.gaps_off, barmerge.lookahead_on)
+yesterdayLow = request.security(syminfo.tickerid, "D", low[1], barmerge.gaps_off, barmerge.lookahead_on)
+
+// Check if we're on a new day
+isNewDay = ta.change(time("D"))
+
+// Store the day's high/low lines
+var line highLine = na
+var line lowLine = na
+
+// Draw or update lines on new day
+if (isNewDay or bar_index == 0)
+    // Delete old lines
+    if not na(highLine)
+        line.delete(highLine)
+    if not na(lowLine)
+        line.delete(lowLine)
+    
+    // Create new lines extending to the right
+    if ShowHL
+        highLine := line.new(bar_index - 1 , yesterdayHigh, bar_index + 1, yesterdayHigh, 
+         color=color.white, width=1, extend=extend.right)
+        lowLine := line.new(bar_index - 1, yesterdayLow, bar_index + 1, yesterdayLow, 
+         color=color.white, width=1, extend=extend.right)
+
+// End of Daily High Low }
+//******************************************************************************
+
+// { Vol Candle
+
+// --- Settings ---
+show_Barcolor = input.bool(true, "Show Volume Bar color", group = "Volume Candle")
+vol_len = input.int(5, "Avg Vol Length", group = "Volume Candle")
+// --- EMA on M5 and M15 via request.security ---
+ema_m15 = request.security(syminfo.tickerid, "15", ta.ema(close, len1), lookahead = barmerge.lookahead_off)
+
+// --- Trend Condition ---
+is_uptrend   = close > yesterdayHigh and close > open
+is_downtrend = close < yesterdayLow and close < open
+is_rangingup = close < yesterdayHigh and close > yesterdayLow and close > open
+is_rangingdo = close < yesterdayHigh and close > yesterdayLow and close < open
+
+// --- Volume Condition ---
+avg_vol       = ta.sma(volume, vol_len)
+vol_breakout  = volume > avg_vol
+vol_up = (is_uptrend or is_rangingup) and vol_breakout
+vol_down = (is_downtrend or is_rangingdo) and vol_breakout
+
+// --- Bar Color Logic ---
+bar_col = show_Barcolor
+     ? vol_up ? color.rgb(15, 255, 211)
+     : vol_down ? color.rgb(185, 0, 98)
+     : na   // no color when trend unclear or volume weak
+     : na
+
+barcolor(bar_col)
+
+alertcondition(vol_up and barstate.isconfirmed, "Bullish Volume Bar", "🟢 Bullish Signal")
+alertcondition(vol_down and barstate.isconfirmed, "Bearish Volume Bar", "🔴 Bearish Signal")
+
+//Market Stage
+show_market_stage = input.bool(true, "Show Market Stage", group = 'Market Stage')
+market_uptrend = close > yesterdayHigh
+market_downtrend = close < yesterdayLow
+market_ranging = close < yesterdayHigh and close > yesterdayLow
+//👉🏻👈🏻👆🏻👇🏻
+market_stage_text = market_uptrend ? '⬆️' : market_downtrend ? '⬇️' : '↔️'  
+market_stage_text_color = input.color(color.rgb(48, 16, 255))
+
+// END }
+//******************************************************************************
+
+// { Gold Price THB
+showgoldpricethb = input.bool(title='Show Gold price THB', defval=true, group='Gold Price THB')
+xauusd = request.security('XAUUSD', 'D', close)
+usdthb = request.security('USDTHB', 'D', close)
+goldcal = (xauusd + 2) * usdthb * 0.473
+
+
+tblPos = input.string(title='Position on Chart', defval='Middle Right', options=['Top Left', 'Top Middle', 'Top Right', 'Bottom Left', 'Bottom Center', 'Bottom Right', 'Middle Left', 'Middle Right'])
+tblposition = tblPos == 'Top Left' ? position.top_left : tblPos == 'Top Right' ? position.top_right : tblPos == 'Bottom Left' ? position.bottom_left : tblPos == 'Bottom Right' ? position.bottom_right : tblPos == 'Middle Left' ? position.middle_left : tblPos == 'Bottom Center' ? position.bottom_center : tblPos == 'Top Center' ? position.top_center : tblPos == 'Middle Right' ? position.middle_right : position.top_center
+
+col1 = #d8b648
+
+tblBorderColor = input(title='Border Color', defval=color.rgb(54, 58, 69, 100))
+celllBgColor = input(title='Background Color', defval=color.rgb(120, 123, 134, 100))
+cellTextColor1 = input(title='Text Color', defval=color.teal)
+
+
+
+var resultsTable = table.new(position=tblposition, columns=1, rows=3, bgcolor=celllBgColor, border_width=1, frame_color=tblBorderColor, frame_width=4)
+table.clear(resultsTable, 0, 0)
+if showatr
+    table.cell(resultsTable, column=0, row=0, text='ATR TF ' + str.tostring(resolved_tf) + ': ' + str.tostring(atr_value, '0.00'), text_color=cellTextColor1, text_halign=text.align_center, text_valign=text.align_center)
+if showgoldpricethb
+    table.cell(resultsTable, column=0, row=1, text='Gold Price: ' + str.tostring(goldcal, '0'), text_color=col1, text_halign=text.align_center, text_valign=text.align_center)
+if show_market_stage
+    table.cell(resultsTable, column=0, row=2, text='Market Stage: ' + market_stage_text, text_color = market_stage_text_color, text_halign=text.align_center, text_valign=text.align_center, text_size = size.normal)
+
+// END }
+//******************************************************************************
+
+// { TICKER FILTER SECTION
+ticker_filter = input.bool(true, 'Use Ticker Filter', group = 'Ticker Filter')
+allowed = syminfo.ticker == 'GBPJPY' or syminfo.ticker == 'GBPUSD' or syminfo.ticker == 'USDJPY' or 
+      syminfo.ticker == 'US30' or syminfo.ticker == 'DJ30'
+if allowed and ticker_filter
+    runtime.error("Ticker not supported")
+
+// END OF TICKER FILTER SECTION }
+//******************************************************************************
