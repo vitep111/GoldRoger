@@ -474,9 +474,19 @@ function renderAll(d){
   renderPairR(d);renderDOW(d);renderQuality(d);renderDir(d);
   renderCal(d);renderTable(d);
 }
-
+function normalizeDate(raw) {
+  if (!raw) return '';
+  // Handle MM/DD/YYYY from Google Sheets CSV
+  if (raw.includes('/')) {
+    const [m, d, y] = raw.split('/');
+    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+  // Already YYYY-MM-DD
+  return raw.slice(0, 10);
+}
+  
 function parseCSV(row){
-  return{no:parseFloat(row['No.'])||0,date:row['Date']||'',day:row['Day of Week']||'',
+  return{no:parseFloat(row['No.'])||0,date: normalizeDate(row['Date'] || ''),day:row['Day of Week']||'',
     session:row['Session']||'',pair:row['Pair']||'',direction:row['Direction']||'',
     strategy:row['Strategy']||'',condition:row['Market Condition']||'',
     result:row['Result']||'',rr:parseFloat(row['RR'])||0,tq:row['Trade Condition']||'',note:row['Note']||null};
