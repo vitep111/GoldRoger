@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@400;600;700&family=Raleway:wght@300;400;600;700&family=Orbitron:wght@400;600;700;900&family=Josefin+Sans:wght@300;400;600&family=Crimson+Pro:wght@300;400;600&family=Nunito:wght@300;400;600;700&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js" onerror="window.ChartDataLabels=null;console.warn('datalabels failed to load')"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -223,7 +223,7 @@ tbody td{padding:8px 12px;color:var(--ts);white-space:nowrap;}
 </main>
 
 <script>
-Chart.register(ChartDataLabels);
+if(typeof ChartDataLabels!=='undefined'&&ChartDataLabels){Chart.register(ChartDataLabels);}
 
 const PROD_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vTxELfRLdXPfki-AnqO0HfLpOTfpr5zbzbOuFs-xj22Hy1iUNGjGUZSeoJKytoIRJLJ_LtSOOS8r940/pub?gid=0&single=true&output=csv';
 const USE_PROD=true; // set true to switch to production
@@ -474,19 +474,15 @@ function renderAll(d){
   renderPairR(d);renderDOW(d);renderQuality(d);renderDir(d);
   renderCal(d);renderTable(d);
 }
-function normalizeDate(raw) {
-  if (!raw) return '';
-  // Handle MM/DD/YYYY from Google Sheets CSV
-  if (raw.includes('/')) {
-    const [m, d, y] = raw.split('/');
-    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
-  }
-  // Already YYYY-MM-DD
-  return raw.slice(0, 10);
+
+function normDate(raw){
+  if(!raw)return'';
+  raw=raw.trim();
+  if(raw.includes('/')){const p=raw.split('/');if(p.length===3){const[m,d,y]=p;return y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0');}}
+  return raw.slice(0,10);
 }
-  
 function parseCSV(row){
-  return{no:parseFloat(row['No.'])||0,date: normalizeDate(row['Date'] || ''),day:row['Day of Week']||'',
+  return{no:parseFloat(row['No.'])||0,date:normDate(row['Date']||''),day:row['Day of Week']||'',
     session:row['Session']||'',pair:row['Pair']||'',direction:row['Direction']||'',
     strategy:row['Strategy']||'',condition:row['Market Condition']||'',
     result:row['Result']||'',rr:parseFloat(row['RR'])||0,tq:row['Trade Condition']||'',note:row['Note']||null};
