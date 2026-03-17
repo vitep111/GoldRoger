@@ -478,7 +478,19 @@ function renderAll(d){
 function normDate(raw){
   if(!raw)return'';
   raw=raw.trim();
-  if(raw.includes('/')){const p=raw.split('/');if(p.length===3){const[d,m,y]=p;return y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0');}}
+  if(raw.includes('/')){
+    const p=raw.split('/');
+    if(p.length===3){
+      const a=parseInt(p[0]),b=parseInt(p[1]),y=p[2].length===4?p[2]:'20'+p[2];
+      // If first part > 12, must be day (DD/MM/YYYY)
+      // If second part > 12, must be day in position 2 so first is month (MM/DD/YYYY)
+      // Otherwise assume MM/DD/YYYY (Google Sheets default US format)
+      let m,d;
+      if(a>12){d=a;m=b;} // definitely DD/MM
+      else{m=a;d=b;}      // MM/DD (Google Sheets default)
+      return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    }
+  }
   return raw.slice(0,10);
 }
 function parseCSV(row){
