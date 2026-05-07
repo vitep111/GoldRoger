@@ -65,6 +65,7 @@ ShowHL = input.bool(true, "Show High/Low", group = "Show High/Low")
 // Get yesterday's high and low from daily timeframe
 yesterdayHigh = request.security(syminfo.tickerid, "D", high[1], barmerge.gaps_off, barmerge.lookahead_on)
 yesterdayLow = request.security(syminfo.tickerid, "D", low[1], barmerge.gaps_off, barmerge.lookahead_on)
+yesterdayMid = (yesterdayHigh + yesterdayLow) / 2
 
 // Check if we're on a new day
 isNewDay = ta.change(time("D"))
@@ -72,6 +73,7 @@ isNewDay = ta.change(time("D"))
 // Store the day's high/low lines
 var line highLine = na
 var line lowLine = na
+var line midLine = na
 
 // Draw or update lines on new day
 if (isNewDay or bar_index == 0)
@@ -80,13 +82,17 @@ if (isNewDay or bar_index == 0)
         line.delete(highLine)
     if not na(lowLine)
         line.delete(lowLine)
-    
+    if not na(midLine)
+        line.delete(midLine)
+
     // Create new lines extending to the right
     if ShowHL
-        highLine := line.new(bar_index - 1 , yesterdayHigh, bar_index + 1, yesterdayHigh, 
+        highLine := line.new(bar_index - 1 , yesterdayHigh, bar_index + 1, yesterdayHigh,
          color=color.white, width=1, extend=extend.right)
-        lowLine := line.new(bar_index - 1, yesterdayLow, bar_index + 1, yesterdayLow, 
+        lowLine := line.new(bar_index - 1, yesterdayLow, bar_index + 1, yesterdayLow,
          color=color.white, width=1, extend=extend.right)
+        midLine := line.new(bar_index - 1, yesterdayMid, bar_index + 1, yesterdayMid,
+         color=color.gray, width=1, style=line.style_dashed, extend=extend.right)
 
 // End of Daily High Low }
 //******************************************************************************
